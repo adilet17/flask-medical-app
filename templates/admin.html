@@ -1,0 +1,145 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script>{% extends 'base.html' %}
+{% block title %}Админ-панель{% endblock %}
+{% block content %}
+    <h1 class="text-3xl font-bold mb-6 text-gray-800">Админ-панель</h1>
+    <div class="card mb-6">
+        <h2 class="text-2xl font-semibold mb-4">Управление статьями</h2>
+        <a href="{{ url_for('add_article') }}" class="btn mb-4">Добавить статью</a>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="p-3">Заголовок</th>
+                        <th class="p-3">Дата</th>
+                        <th class="p-3">Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for article in articles %}
+                        <tr class="border-b">
+                            <td class="p-3">{{ article.title }}</td>
+                            <td class="p-3">{{ article.timestamp }}</td>
+                            <td class="p-3">
+                                <a href="{{ url_for('delete_article', article_id=article.id) }}" class="text-red-600 hover:underline">Удалить</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card mb-6">
+        <h2 class="text-2xl font-semibold mb-4">Пользователи</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="p-3">Имя</th>
+                        <th class="p-3">Роль</th>
+                        <th class="p-3">Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                        <tr class="border-b">
+                            <td class="p-3">{{ user.username }}</td>
+                            <td class="p-3">{{ user.role }}</td>
+                            <td class="p-3">
+                                <a href="{{ url_for('delete_user', user_id=user.id) }}" class="text-red-600 hover:underline">Удалить</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card mb-6">
+        <h2 class="text-2xl font-semibold mb-4">Встречи</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="p-3">Пациент</th>
+                        <th class="p-3">Доктор</th>
+                        <th class="p-3">Время</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for appointment in appointments %}
+                        <tr class="border-b">
+                            <td class="p-3">{{ users[appointment.patient_id - 1].username if users else '' }}</td>
+                            <td class="p-3">{{ users[appointment.doctor_id - 1].username if users else '' }}</td>
+                            <td class="p-3">{{ appointment.appointment_time }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card">
+        <h2 class="text-2xl font-semibold mb-4">Отзывы</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="p-3">Доктор</th>
+                        <th class="p-3">Рейтинг</th>
+                        <th class="p-3">Комментарий</th>
+                        <th class="p-3">Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for review in reviews %}
+                        <tr class="border-b">
+                            <td class="p-3">{{ users[review.doctor_id - 1].username if users else '' }}</td>
+                            <td class="p-3">{{ review.rating }}/5</td>
+                            <td class="p-3">{{ review.comment }}</td>
+                            <td class="p-3">
+                                <a href="{{ url_for('delete_review', review_id=review.id) }}" class="text-red-600 hover:underline">Удалить</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}

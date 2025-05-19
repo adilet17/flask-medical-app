@@ -1,0 +1,33 @@
+# Виртуальное окружение
+venv
+env
+.venv
+
+# Локальная база данных SQLite
+database.db
+
+# Переменные окружения
+.env
+
+# Временные файлы Python
+.pyc
+__pycache__
+.pyo
+.pyd
+
+# Локальные настройки IDE
+.idea
+.vscode
+
+# Временные файлы и логи
+.log
+.tmp
+.swp
+
+# Системные файлы
+.DS_Store
+Thumbs.db
+
+# Папка для загрузки файлов (если не используете S3)
+staticuploads
+!staticuploads.gitkeep

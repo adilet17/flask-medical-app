@@ -1,0 +1,9 @@
+flask
+flask-socketio
+flask-sqlalchemy
+flask-migrate
+python-dotenv
+werkzeug
+gunicorn
+eventlet
+boto3

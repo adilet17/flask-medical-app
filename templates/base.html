@@ -1,0 +1,160 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% endblock %} | Медицинский портал</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(to right, #e0f7fa, #b2ebf2);
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+        }
+        .navbar {
+            background: linear-gradient(to right, #0288d1, #0277bd);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+        }
+        .navbar a {
+            transition: all 0.3s ease;
+            color: white;
+        }
+        .navbar a:hover {
+            transform: translateY(-2px);
+            color: #e3f2fd;
+        }
+        .container {
+            animation: fadeIn 0.5s ease-in-out;
+            padding: 1rem;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+            padding: 1.5rem;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        .btn {
+            background: linear-gradient(to right, #0288d1, #0277bd);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        .btn:hover {
+            background: linear-gradient(to right, #0277bd, #026aa7);
+            transform: translateY(-2px);
+        }
+        /* Адаптивность */
+        @media (max-width: 768px) {
+            .navbar .flex {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            .navbar a {
+                display: block;
+                text-align: center;
+            }
+            .container {
+                padding: 0.5rem;
+            }
+            .card {
+                padding: 1rem;
+            }
+            .btn {
+                padding: 0.5rem 1rem;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container mx-auto flex flex-wrap justify-between items-center">
+            <a href="{{ url_for('index') }}" class="text-xl font-bold">Медицинский портал</a>
+            <div class="flex flex-wrap gap-4 mt-2 md:mt-0">
+                {% if session.user_id %}
+                    <a href="{{ url_for('profile') }}">Профиль</a>
+                    <a href="{{ url_for('appointments') }}">Мои встречи</a>
+                    <a href="{{ url_for('notifications') }}">Уведомления</a>
+                    <a href="{{ url_for('doctors') }}">Доктора</a>
+                    {% if session.role == 'doctor' %}
+                        <a href="{{ url_for('patients') }}">Пациенты</a>
+                    {% endif %}
+                    {% if session.role == 'admin' %}
+                        <a href="{{ url_for('admin') }}">Админ-панель</a>
+                        <a href="{{ url_for('analytics') }}">Аналитика</a>
+                    {% endif %}
+                    <a href="{{ url_for('articles') }}">Статьи</a>
+                    <a href="{{ url_for('faq') }}">FAQ</a>
+                    <a href="{{ url_for('support') }}">Поддержка</a>
+                    <a href="{{ url_for('logout') }}">Выйти</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}">Войти</a>
+                    <a href="{{ url_for('register') }}">Регистрация</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+    <div class="container mx-auto">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 card">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

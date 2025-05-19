@@ -1,0 +1,110 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="ru">
+<head>
+    <title>Чат с доктором</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        #messages {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        #message {
+            width: 70%;
+            padding: 5px;
+        }
+        button {
+            padding: 5px 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Чат с {{ doctor_name }}</h1>
+    <div id="messages">
+        {% for msg in messages %}
+            <p><strong>{{ msg.sender_id }}</strong> ({{ msg.timestamp }}): {{ msg.message }}</p>
+        {% endfor %}
+    </div>
+    <input id="message" type="text" placeholder="Введите сообщение..." autocomplete="off">
+    <button onclick="sendMessage()">Отправить</button>
+
+    <script>
+        var socket = io.connect(window.location.origin);
+        socket.on('connect', function() {
+            console.log('Подключено к чату');
+            socket.emit('join', { room: '{{ doctor_id }}_{{ session.user_id }}' });
+        });
+
+        socket.on('message', function(data) {
+            var msgElement = document.createElement('p');
+            msgElement.innerHTML = `<strong>${data.sender_id}</strong> (${data.timestamp}): ${data.msg}`;
+            document.getElementById('messages').appendChild(msgElement);
+            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+        });
+
+        socket.on('disconnect', function() {
+            console.log('Отключено от чата');
+        });
+
+        function sendMessage() {
+            var msg = document.getElementById('message').value.trim();
+            if (msg) {
+                socket.emit('message', {
+                    room: '{{ doctor_id }}_{{ session.user_id }}',
+                    msg: msg,
+                    receiver_id: {{ doctor_id }}
+                });
+                document.getElementById('message').value = '';
+            }
+        }
+
+        // Отправка сообщения при нажатии Enter
+        document.getElementById('message').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
